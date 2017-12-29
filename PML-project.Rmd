@@ -1,0 +1,106 @@
+---
+title: "Practical Machine Learning Project"
+author: "chaitra"
+output: 
+    html_document: 
+      keep_md: true
+    pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Prediction on Exercise Performance
+### Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+### Project Goal
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. We need to build a model, perform cross-validation and estimate out of sample error. We should then use the chosen model to predict 20 different test cases.
+
+### Loading the required packages
+
+```{r message=FALSE}
+library(caret)
+library(rpart)
+library(randomForest)
+library(rpart.plot)
+```
+
+### Getting and Cleaning the data
+
+The train set and the test set data are downloaded from the given url to the local PML folder on the hard disk. 
+
+```{r}
+
+# setting the seed to ensure reproduceability
+set.seed(35343)
+
+# read the data into training and test sets respectively. 
+# Care is taken to mark NAs and other special expressions as NAs.
+training <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+
+# filter out columns with NAs
+training <- training[,colSums(is.na(training)) == 0]
+testing <- testing[,colSums(is.na(testing)) == 0]
+
+# remove the unnecessary variables from the data sets
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+dim(training)
+dim(testing)
+```
+
+### Machine Learning
+
+The aim is to predict the 'classe' variable using Machine Learning algorithms. Since the original testing set does not contain the classe variable, we cannot validate the results on the testing data. So the training set itself is split into two subsets so that we can validate our model.
+
+```{r}
+inTrain <- createDataPartition(y=training$classe,p=0.75,list=FALSE)
+mytraining <- training[inTrain,]
+mytesting <- training[-inTrain,]
+dim(mytraining)
+dim(mytesting)
+```
+
+### Prediction models : Classification Tree method
+
+First, we use the decision tree method to build our model.
+```{r}
+modelTree <- rpart(classe ~.,data=mytraining,method="class")
+prp(modelTree)
+
+# cross validating on the sub sample set aside.
+predictTree <- predict(modelTree,mytesting,type="class")
+confusionMatrix(predictTree,mytesting$classe)
+```
+
+### Prediction models : Random Forest Method
+
+Then we use the random forest method to build a second model
+```{r}
+modelRF <- randomForest(classe ~.,data=mytraining,method="class")
+# cross validation
+predictRF <- predict(modelRF,mytesting,type="class")
+confusionMatrix(predictRF,mytesting$classe)
+plot(modelRF)
+```
+
+### Model selection
+
+From the confusion matrices, we can see significant differences in kappa and accuracy values between the two models. The accuracy for Tree model is 74.7% and that for RF model is 99.7%. Consequently, the out of sample errors (1 - accuracy) for the two are 25.3% and 0.45% respectively. 
+
+#### Hence we select the Random Forest method to build our final model.
+
+### Final Prediction : Results
+
+Using the final model on the original testing dataset, we predict the following results.
+
+```{r}
+predictFinal <- predict(modelRF,testing,type="class")
+predictFinal
+```
+
+
